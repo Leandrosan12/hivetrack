@@ -7,8 +7,16 @@ const dataRoutes = require('./routes/dataRoutes');
 
 const app = express();
 
-/* CORS libre para desarrollo local */
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://zntmnrm0-5173.brs.devtunnels.ms'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
 app.use(express.json());
 
@@ -22,5 +30,5 @@ app.use('/api', dataRoutes);
 const port = process.env.PORT || 3000;
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`✅ Backend corriendo en http://localhost:${port}`);
+  console.log(`✅ Backend corriendo en puerto ${port}`);
 });

@@ -15,11 +15,15 @@ import {
   UserPlus,
   CheckCircle,
   ArrowLeft,
-  BarChart3,
   Table2
 } from 'lucide-react';
 import { api, setSession, clearSession, getToken, getUser } from './services/api';
 import './styles/app.css';
+
+function toNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
 
 function Login({ onLogin, goRegister }) {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -49,13 +53,16 @@ function Login({ onLogin, goRegister }) {
         </div>
         <h1>Gestión apícola profesional para empresas de polinización.</h1>
         <p>
-          Login, registro, apiarios, colmenas, agricultores, contratos, movimientos e IPE
-          conectado a MySQL.
+          Login, registro, apiarios, colmenas, agricultores, contratos,
+          movimientos e IPE conectado a MySQL.
         </p>
       </div>
 
       <form className="auth-card" onSubmit={submit}>
-        <div className="auth-icon"><Lock /></div>
+        <div className="auth-icon">
+          <Lock />
+        </div>
+
         <h2>Iniciar sesión</h2>
 
         {error && <div className="alert">{error}</div>}
@@ -76,6 +83,7 @@ function Login({ onLogin, goRegister }) {
         />
 
         <button className="primary">Entrar al sistema</button>
+
         <button type="button" className="ghost" onClick={goRegister}>
           Crear cuenta
         </button>
@@ -129,24 +137,44 @@ function Register({ goLogin }) {
         {error && <div className="alert">{error}</div>}
 
         <label>Nombre</label>
-        <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+        <input
+          value={form.nombre}
+          onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+        />
 
         <label>Apellido</label>
-        <input value={form.apellido} onChange={(e) => setForm({ ...form, apellido: e.target.value })} />
+        <input
+          value={form.apellido}
+          onChange={(e) => setForm({ ...form, apellido: e.target.value })}
+        />
 
         <label>Correo</label>
-        <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
 
         <label>Contraseña</label>
-        <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        <input
+          type="password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
 
         <label>RUT</label>
-        <input value={form.rut} onChange={(e) => setForm({ ...form, rut: e.target.value })} />
+        <input
+          value={form.rut}
+          onChange={(e) => setForm({ ...form, rut: e.target.value })}
+        />
 
         <label>Teléfono</label>
-        <input value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
+        <input
+          value={form.telefono}
+          onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+        />
 
         <button className="primary">Registrar usuario</button>
+
         <button type="button" className="ghost" onClick={goLogin}>
           Volver al login
         </button>
@@ -258,38 +286,225 @@ function Dashboard({ user, onLogout }) {
 
   async function save(type, e) {
     e.preventDefault();
+    setError('');
+    setMensaje('');
 
     try {
       if (type === 'apiario') {
-        await api.createApiario(apiario);
-        setApiario({ rua_code: '', nombre: '', propietario_rut: '', lat: '', lng: '', region: '', comuna: '', n_colmenas_max: '' });
+        if (!apiario.rua_code || !apiario.nombre) {
+          setError('Debes ingresar código RUA y nombre del apiario.');
+          return;
+        }
+
+        const lat = apiario.lat ? toNumber(apiario.lat) : null;
+        const lng = apiario.lng ? toNumber(apiario.lng) : null;
+        const maxColmenas = apiario.n_colmenas_max ? toNumber(apiario.n_colmenas_max) : 0;
+
+        if (apiario.lat && lat === null) {
+          setError('La latitud debe ser un número.');
+          return;
+        }
+
+        if (apiario.lng && lng === null) {
+          setError('La longitud debe ser un número.');
+          return;
+        }
+
+        if (apiario.n_colmenas_max && maxColmenas === null) {
+          setError('Máx. colmenas debe ser un número.');
+          return;
+        }
+
+        await api.createApiario({
+          ...apiario,
+          lat,
+          lng,
+          n_colmenas_max: maxColmenas
+        });
+
+        setApiario({
+          rua_code: '',
+          nombre: '',
+          propietario_rut: '',
+          lat: '',
+          lng: '',
+          region: '',
+          comuna: '',
+          n_colmenas_max: ''
+        });
       }
 
       if (type === 'agricultor') {
+        if (!agricultor.nombre) {
+          setError('Debes ingresar el nombre del agricultor.');
+          return;
+        }
+
         await api.createAgricultor(agricultor);
-        setAgricultor({ nombre: '', razon_social: '', rut: '', email: '', telefono: '', direccion: '' });
+
+        setAgricultor({
+          nombre: '',
+          razon_social: '',
+          rut: '',
+          email: '',
+          telefono: '',
+          direccion: ''
+        });
       }
 
       if (type === 'colmena') {
-        await api.createColmena(colmena);
-        setColmena({ apiario_id: '', codigo_lote: '', estado_salud: 'verde', reina_id: '', nro_marcos: '', nro_alzas: '', peso_kg: '', observaciones: '' });
+        if (!colmena.apiario_id) {
+          setError('Debes seleccionar un apiario.');
+          return;
+        }
+
+        if (!colmena.codigo_lote) {
+          setError('Debes ingresar el código de lote.');
+          return;
+        }
+
+        const nroMarcos = colmena.nro_marcos ? toNumber(colmena.nro_marcos) : 0;
+        const nroAlzas = colmena.nro_alzas ? toNumber(colmena.nro_alzas) : 0;
+        const pesoKg = colmena.peso_kg ? toNumber(colmena.peso_kg) : 0;
+
+        if (colmena.nro_marcos && nroMarcos === null) {
+          setError('Nº marcos debe ser un número.');
+          return;
+        }
+
+        if (colmena.nro_alzas && nroAlzas === null) {
+          setError('Nº alzas debe ser un número.');
+          return;
+        }
+
+        if (colmena.peso_kg && pesoKg === null) {
+          setError('Peso kg debe ser un número.');
+          return;
+        }
+
+        await api.createColmena({
+          ...colmena,
+          nro_marcos: nroMarcos,
+          nro_alzas: nroAlzas,
+          peso_kg: pesoKg
+        });
+
+        setColmena({
+          apiario_id: '',
+          codigo_lote: '',
+          estado_salud: 'verde',
+          reina_id: '',
+          nro_marcos: '',
+          nro_alzas: '',
+          peso_kg: '',
+          observaciones: ''
+        });
       }
 
       if (type === 'contrato') {
-        await api.createContrato(contrato);
-        setContrato({ apiario_id: '', agricultor_id: '', cultivo: '', variedad: '', superficie_ha: '', densidad_acordada: '', fecha_inicio: '', fecha_fin: '', precio_colmena_dia: '' });
+        if (!contrato.apiario_id) {
+          setError('Debes seleccionar un apiario.');
+          return;
+        }
+
+        if (!contrato.agricultor_id) {
+          setError('Debes seleccionar un agricultor.');
+          return;
+        }
+
+        if (!contrato.cultivo) {
+          setError('Debes ingresar el cultivo.');
+          return;
+        }
+
+        if (!contrato.fecha_inicio || !contrato.fecha_fin) {
+          setError('Debes ingresar fecha de inicio y fecha de fin.');
+          return;
+        }
+
+        const superficie = toNumber(contrato.superficie_ha);
+        const densidad = toNumber(contrato.densidad_acordada);
+        const precio = contrato.precio_colmena_dia ? toNumber(contrato.precio_colmena_dia) : 0;
+
+        if (superficie === null || superficie <= 0) {
+          setError('Superficie ha debe ser un número mayor a 0. Ejemplo: 4');
+          return;
+        }
+
+        if (densidad === null || densidad <= 0) {
+          setError('Densidad col/ha debe ser un número mayor a 0. Ejemplo: 6');
+          return;
+        }
+
+        if (contrato.precio_colmena_dia && precio === null) {
+          setError('Precio colmena/día debe ser un número.');
+          return;
+        }
+
+        await api.createContrato({
+          ...contrato,
+          superficie_ha: superficie,
+          densidad_acordada: densidad,
+          precio_colmena_dia: precio
+        });
+
+        setContrato({
+          apiario_id: '',
+          agricultor_id: '',
+          cultivo: '',
+          variedad: '',
+          superficie_ha: '',
+          densidad_acordada: '',
+          fecha_inicio: '',
+          fecha_fin: '',
+          precio_colmena_dia: ''
+        });
       }
 
       if (type === 'movimiento') {
-        await api.createMovimiento(movimiento);
-        setMovimiento({ origen_id: '', destino_id: '', fecha_movimiento: '', n_colmenas: '', motivo: '', vehiculo_patente: '', conductor_rut: '' });
+        if (!movimiento.origen_id || !movimiento.destino_id) {
+          setError('Debes seleccionar apiario origen y destino.');
+          return;
+        }
+
+        if (!movimiento.fecha_movimiento) {
+          setError('Debes ingresar la fecha del movimiento.');
+          return;
+        }
+
+        const nColmenas = toNumber(movimiento.n_colmenas);
+
+        if (nColmenas === null || nColmenas <= 0) {
+          setError('Nº colmenas debe ser un número mayor a 0.');
+          return;
+        }
+
+        if (!movimiento.motivo) {
+          setError('Debes ingresar el motivo.');
+          return;
+        }
+
+        await api.createMovimiento({
+          ...movimiento,
+          n_colmenas: nColmenas
+        });
+
+        setMovimiento({
+          origen_id: '',
+          destino_id: '',
+          fecha_movimiento: '',
+          n_colmenas: '',
+          motivo: '',
+          vehiculo_patente: '',
+          conductor_rut: ''
+        });
       }
 
       await load();
       setOpenForm('');
       ok('Dato guardado correctamente. El resumen se actualizó en tiempo real.');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Error al guardar.');
     }
   }
 
@@ -606,7 +821,11 @@ function Dashboard({ user, onLogout }) {
                 ['contrato', 'Contrato'],
                 ['movimiento', 'Movimiento']
               ].map(([key, label]) => (
-                <button key={key} className="action-card" onClick={() => setOpenForm(openForm === key ? '' : key)}>
+                <button
+                  key={key}
+                  className="action-card"
+                  onClick={() => setOpenForm(openForm === key ? '' : key)}
+                >
                   <Plus /> {label}
                 </button>
               ))}
@@ -621,6 +840,7 @@ function Dashboard({ user, onLogout }) {
                 {openForm === 'agricultor' && (
                   <form onSubmit={(e) => save('agricultor', e)}>
                     <h3>Formulario Agricultor</h3>
+
                     <div className="form-grid">
                       <input placeholder="Nombre" value={agricultor.nombre} onChange={e => setAgricultor({ ...agricultor, nombre: e.target.value })} />
                       <input placeholder="Razón social" value={agricultor.razon_social} onChange={e => setAgricultor({ ...agricultor, razon_social: e.target.value })} />
@@ -629,6 +849,7 @@ function Dashboard({ user, onLogout }) {
                       <input placeholder="Teléfono" value={agricultor.telefono} onChange={e => setAgricultor({ ...agricultor, telefono: e.target.value })} />
                       <input placeholder="Dirección" value={agricultor.direccion} onChange={e => setAgricultor({ ...agricultor, direccion: e.target.value })} />
                     </div>
+
                     <button className="primary small">Guardar agricultor</button>
                   </form>
                 )}
@@ -636,16 +857,18 @@ function Dashboard({ user, onLogout }) {
                 {openForm === 'apiario' && (
                   <form onSubmit={(e) => save('apiario', e)}>
                     <h3>Formulario Apiario</h3>
+
                     <div className="form-grid">
                       <input placeholder="Código RUA" value={apiario.rua_code} onChange={e => setApiario({ ...apiario, rua_code: e.target.value })} />
                       <input placeholder="Nombre" value={apiario.nombre} onChange={e => setApiario({ ...apiario, nombre: e.target.value })} />
                       <input placeholder="RUT propietario" value={apiario.propietario_rut} onChange={e => setApiario({ ...apiario, propietario_rut: e.target.value })} />
-                      <input placeholder="Latitud" value={apiario.lat} onChange={e => setApiario({ ...apiario, lat: e.target.value })} />
-                      <input placeholder="Longitud" value={apiario.lng} onChange={e => setApiario({ ...apiario, lng: e.target.value })} />
+                      <input type="number" step="0.00000001" placeholder="Latitud" value={apiario.lat} onChange={e => setApiario({ ...apiario, lat: e.target.value })} />
+                      <input type="number" step="0.00000001" placeholder="Longitud" value={apiario.lng} onChange={e => setApiario({ ...apiario, lng: e.target.value })} />
                       <input placeholder="Región" value={apiario.region} onChange={e => setApiario({ ...apiario, region: e.target.value })} />
                       <input placeholder="Comuna" value={apiario.comuna} onChange={e => setApiario({ ...apiario, comuna: e.target.value })} />
-                      <input placeholder="Máx. colmenas" value={apiario.n_colmenas_max} onChange={e => setApiario({ ...apiario, n_colmenas_max: e.target.value })} />
+                      <input type="number" min="0" placeholder="Máx. colmenas" value={apiario.n_colmenas_max} onChange={e => setApiario({ ...apiario, n_colmenas_max: e.target.value })} />
                     </div>
+
                     <button className="primary small">Guardar apiario</button>
                   </form>
                 )}
@@ -653,24 +876,29 @@ function Dashboard({ user, onLogout }) {
                 {openForm === 'colmena' && (
                   <form onSubmit={(e) => save('colmena', e)}>
                     <h3>Formulario Colmena</h3>
+
                     <div className="form-grid">
                       <select value={colmena.apiario_id} onChange={e => setColmena({ ...colmena, apiario_id: e.target.value })}>
                         <option value="">Seleccionar apiario</option>
                         {apiarios.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
                       </select>
+
                       <input placeholder="Código lote" value={colmena.codigo_lote} onChange={e => setColmena({ ...colmena, codigo_lote: e.target.value })} />
+
                       <select value={colmena.estado_salud} onChange={e => setColmena({ ...colmena, estado_salud: e.target.value })}>
                         <option value="verde">Verde</option>
                         <option value="amarillo">Amarillo</option>
                         <option value="naranjo">Naranjo</option>
                         <option value="rojo">Rojo</option>
                       </select>
+
                       <input placeholder="ID reina" value={colmena.reina_id} onChange={e => setColmena({ ...colmena, reina_id: e.target.value })} />
-                      <input placeholder="Nº marcos" value={colmena.nro_marcos} onChange={e => setColmena({ ...colmena, nro_marcos: e.target.value })} />
-                      <input placeholder="Nº alzas" value={colmena.nro_alzas} onChange={e => setColmena({ ...colmena, nro_alzas: e.target.value })} />
-                      <input placeholder="Peso kg" value={colmena.peso_kg} onChange={e => setColmena({ ...colmena, peso_kg: e.target.value })} />
+                      <input type="number" min="0" placeholder="Nº marcos" value={colmena.nro_marcos} onChange={e => setColmena({ ...colmena, nro_marcos: e.target.value })} />
+                      <input type="number" min="0" placeholder="Nº alzas" value={colmena.nro_alzas} onChange={e => setColmena({ ...colmena, nro_alzas: e.target.value })} />
+                      <input type="number" min="0" step="0.01" placeholder="Peso kg" value={colmena.peso_kg} onChange={e => setColmena({ ...colmena, peso_kg: e.target.value })} />
                       <input placeholder="Observaciones" value={colmena.observaciones} onChange={e => setColmena({ ...colmena, observaciones: e.target.value })} />
                     </div>
+
                     <button className="primary small">Guardar colmena</button>
                   </form>
                 )}
@@ -678,44 +906,83 @@ function Dashboard({ user, onLogout }) {
                 {openForm === 'contrato' && (
                   <form onSubmit={(e) => save('contrato', e)}>
                     <h3>Formulario Contrato</h3>
+
                     <div className="form-grid">
                       <select value={contrato.apiario_id} onChange={e => setContrato({ ...contrato, apiario_id: e.target.value })}>
                         <option value="">Seleccionar apiario</option>
                         {apiarios.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
                       </select>
+
                       <select value={contrato.agricultor_id} onChange={e => setContrato({ ...contrato, agricultor_id: e.target.value })}>
                         <option value="">Seleccionar agricultor</option>
                         {agricultores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
                       </select>
+
                       <input placeholder="Cultivo" value={contrato.cultivo} onChange={e => setContrato({ ...contrato, cultivo: e.target.value })} />
                       <input placeholder="Variedad" value={contrato.variedad} onChange={e => setContrato({ ...contrato, variedad: e.target.value })} />
-                      <input placeholder="Superficie ha" value={contrato.superficie_ha} onChange={e => setContrato({ ...contrato, superficie_ha: e.target.value })} />
-                      <input placeholder="Densidad col/ha" value={contrato.densidad_acordada} onChange={e => setContrato({ ...contrato, densidad_acordada: e.target.value })} />
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Superficie ha"
+                        value={contrato.superficie_ha}
+                        onChange={e => setContrato({ ...contrato, superficie_ha: e.target.value })}
+                      />
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Densidad col/ha"
+                        value={contrato.densidad_acordada}
+                        onChange={e => setContrato({ ...contrato, densidad_acordada: e.target.value })}
+                      />
+
                       <input type="date" value={contrato.fecha_inicio} onChange={e => setContrato({ ...contrato, fecha_inicio: e.target.value })} />
                       <input type="date" value={contrato.fecha_fin} onChange={e => setContrato({ ...contrato, fecha_fin: e.target.value })} />
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Precio colmena/día"
+                        value={contrato.precio_colmena_dia}
+                        onChange={e => setContrato({ ...contrato, precio_colmena_dia: e.target.value })}
+                      />
                     </div>
-                    <button className="primary small">Guardar contrato</button>
+
+                    <button
+                      className="primary small"
+                      disabled={!contrato.apiario_id || !contrato.agricultor_id}
+                    >
+                      Guardar contrato
+                    </button>
                   </form>
                 )}
 
                 {openForm === 'movimiento' && (
                   <form onSubmit={(e) => save('movimiento', e)}>
                     <h3>Formulario Movimiento</h3>
+
                     <div className="form-grid">
                       <select value={movimiento.origen_id} onChange={e => setMovimiento({ ...movimiento, origen_id: e.target.value })}>
                         <option value="">Apiario origen</option>
                         {apiarios.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
                       </select>
+
                       <select value={movimiento.destino_id} onChange={e => setMovimiento({ ...movimiento, destino_id: e.target.value })}>
                         <option value="">Apiario destino</option>
                         {apiarios.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
                       </select>
+
                       <input type="datetime-local" value={movimiento.fecha_movimiento} onChange={e => setMovimiento({ ...movimiento, fecha_movimiento: e.target.value })} />
-                      <input placeholder="Nº colmenas" value={movimiento.n_colmenas} onChange={e => setMovimiento({ ...movimiento, n_colmenas: e.target.value })} />
+                      <input type="number" min="1" placeholder="Nº colmenas" value={movimiento.n_colmenas} onChange={e => setMovimiento({ ...movimiento, n_colmenas: e.target.value })} />
                       <input placeholder="Motivo" value={movimiento.motivo} onChange={e => setMovimiento({ ...movimiento, motivo: e.target.value })} />
                       <input placeholder="Patente vehículo" value={movimiento.vehiculo_patente} onChange={e => setMovimiento({ ...movimiento, vehiculo_patente: e.target.value })} />
                       <input placeholder="RUT conductor" value={movimiento.conductor_rut} onChange={e => setMovimiento({ ...movimiento, conductor_rut: e.target.value })} />
                     </div>
+
                     <button className="primary small">Guardar movimiento</button>
                   </form>
                 )}
@@ -783,6 +1050,7 @@ function Chart({ summary, max }) {
   return (
     <section className="panel">
       <h2>Gráfico y resumen</h2>
+
       <div className="chart-card">
         {[
           ['Apiarios', summary.apiarios || 0],
@@ -793,7 +1061,9 @@ function Chart({ summary, max }) {
         ].map(([label, value]) => (
           <div className="bar-row" key={label}>
             <span>{label}</span>
-            <div className="bar"><div style={{ width: `${(value / max) * 100}%` }} /></div>
+            <div className="bar">
+              <div style={{ width: `${(value / max) * 100}%` }} />
+            </div>
             <b>{value}</b>
           </div>
         ))}
@@ -806,10 +1076,13 @@ function DataList({ title, rows, type, remove, render }) {
   return (
     <div className="table-card">
       <h3>{title}</h3>
+
       {!rows.length && <p className="empty">Sin datos todavía.</p>}
+
       {rows.map(row => (
         <div className="data-row" key={row.id}>
           <span>{render(row)}</span>
+
           <button onClick={() => remove(type, row.id)}>
             <Trash2 size={15} /> Eliminar
           </button>
@@ -823,7 +1096,9 @@ function App() {
   const [screen, setScreen] = useState(getToken() ? 'dashboard' : 'login');
   const [user, setUser] = useState(getUser());
 
-  if (screen === 'register') return <Register goLogin={() => setScreen('login')} />;
+  if (screen === 'register') {
+    return <Register goLogin={() => setScreen('login')} />;
+  }
 
   if (screen === 'dashboard') {
     return <Dashboard user={user} onLogout={() => setScreen('login')} />;
